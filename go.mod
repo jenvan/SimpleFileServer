@@ -1,4 +1,4 @@
-module github.com/jenvan/fileserver
+module github.com/jenvan/sfs
 
 go 1.25.4
 

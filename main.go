@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jenvan/fileserver/utils"
+	"github.com/jenvan/sfs/utils"
 
 	"github.com/samber/lo"
 )
