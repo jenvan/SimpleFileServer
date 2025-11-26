@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple File Server - {{ if .CurrentPath }}{{ .CurrentPath }}{{ else }}Root{{ end }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            padding: 20px;
+            background: #f5f5f5;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        .container {
+            position: relative;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .logo {
+            position: absolute;
+            left: -25px;
+            top: -25px;
+            font-size: 64px;
+            opacity: 0.4;
+        }
+
+        .actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(to right, #3498db, #FFF);;
+            padding: 10px 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        .breadcrumb {
+            margin-left: 40px;
+            color: #CCC;
+            font-size: 18px;
+            opacity: 0.9;
+        }
+        .breadcrumb a {
+            color: #FFF;
+            font-size: 18px;
+            font-weight: 500;
+            text-decoration: none;
+        }
+        .breadcrumb a:hover {
+            text-decoration: underline;
+        }
+        
+        .upload {
+            background: rgba(52, 152, 219, 0.2);
+            border-radius: 4px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .btn-secondary {
+            background: #95a5a6;
+        }
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+
+        .show {
+            display: flex !important;
+        }
+        .upload-dropbox {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(52, 152, 219, 0.4);
+            font-size: 32px;
+            font-weight: 800;
+        }
+        .upload-progress {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 60px;
+            z-index: 1001;
+            flex-flow: column nowrap;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+        }
+        .upload-progress-bar {
+            margin-top: 10px;
+            width: 100%;
+            height: 4px;
+            background: #ecf0f1;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .upload-progress-fill {
+            width: 0%;
+            height: 100%;
+            background: #3498db;
+            transition: width 0.3s;
+        }
+
+        .file-list {
+            position: relative;
+            padding: 20px;
+        }
+        .file-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .file-table th {
+            text-align: left;
+            padding: 12px;
+            background: #f9f9fc;
+            font-weight: 600;
+            border-bottom: 2px solid #bdc3c7;
+        }
+        .file-table td {
+            padding: 12px;
+            border-bottom: 1px solid #ecf0f1;
+        }
+        .file-table tr:hover {
+            background: #e7f0fa;
+        }
+        .file-icon {
+            display: inline-block;
+            width: 20px;
+            margin-right: 8px;
+            text-align: center;
+        }
+        .file-name {
+            color: #2c3e50;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+        }
+        .file-name.dir {
+            font-weight: 500;
+        }
+        .file-name:hover {
+            color: #0280d5;
+        }
+        .file-size {
+            color: #7f8c8d;
+            font-size: 14px;
+        }
+        .file-date {
+            color: #95a5a6;
+            font-size: 14px;
+        }
+        .file-opt {
+            width: 300px;
+            color: #3498db;
+        }
+        .file-opt a {
+            cursor: pointer;
+            text-decoration: none;
+        }
+        .file-opt a:hover {
+            text-decoration: underline;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #95a5a6;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        .parent {
+            position: absolute;
+            top : 25px;
+            right: 20px;
+            font-size: 24px;
+        }
+        .parent, .parent:hover {
+            text-decoration: none;
+        }
+
+        #viewer {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            height: 96%;
+            max-width: 1200px;
+            padding: 20px;
+            background: #FFF;
+            border: solid 2px #3498db;
+            border-radius: 10px;
+            display: none;
+            justify-content: center;
+            align-items: center;
+        }
+        #viewer::before {
+            content: "❌️";
+            position: absolute;
+            right: 10px;
+            top: 10px;
+            font-size: 24px;
+            cursor: pointer;
+        }
+        #viewer::after {
+            content: "📥️  DOWNLOAD";
+            position: absolute;
+            left: 20%;
+            bottom: 10px;
+            width: 60%;
+            padding: 10px;
+            background: #EEE;
+            border-radius: 5px;
+            font-size: 24px;
+            text-align: center;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo">📂</div>
+        <div class="actions">
+            <div class="breadcrumb">
+                🏠 <a href="/">Home</a>
+                {{ if .CurrentPath }}
+                    {{ $parts := splitPath .CurrentPath }}
+                    {{ $path := "" }}
+                    {{ range $index, $part := $parts }}
+                        {{ if ne $part "" }}
+                            {{ $path = joinPath $path $part }}
+                            / <a href="/{{ $path }}/">{{ $part }}</a>
+                        {{ end }}
+                    {{ end }}
+                {{ end }}
+            </div>
+            <div class="upload">
+                <a id="upload" class="btn">📤 Upload File</a>
+                <input id="uploadButton" type="file" style="display: none;"></input>
+            </div>
+        </div>
+
+        <div class="file-list">
+            <a class="parent" href="{{ .ParentPath }}" title="Parent Directory">⤴️</a>
+            {{ if .Files }}
+                <table class="file-table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Size</th>
+                            <th>Modified</th>
+                            <th>Operate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {{ range .Files }}
+                        <tr>
+                            <td>
+                                {{ if .IsDir }}
+                                    <a href="{{ .Path }}/" class="file-name dir">
+                                        <span class="file-icon">📁</span>
+                                        {{ .Name }}
+                                    </a>
+                                {{ else }}
+                                    <a href="{{ .Path }}" class="file-name file">
+                                        <span class="file-icon">📄</span>
+                                        {{ .Name }}
+                                    </a>
+                                {{ end }}
+                            </td>
+                            <td class="file-size">
+                                {{ if .IsDir }}
+                                    —
+                                {{ else }}
+                                    {{ formatSize .Size }}
+                                {{ end }}
+                            </td>
+                            <td class="file-date">{{ formatDate .ModTime }}</td>
+                            <td class="file-opt" path="{{ .Path }}">
+                                🔀 <a class="opt" act="move">MOVE</a> &nbsp;
+                                🔃 <a class="opt" act="copy">COPY</a> &nbsp;
+                                🚮 <a class="opt" act="delete">DELETE</a> &nbsp;
+                            </td>
+                        </tr>
+                        {{ end }}
+                    </tbody>
+                </table>
+            {{ else }}
+                <div class="empty-state">
+                    <div class="empty-state-icon">📭</div>
+                    <p>This directory is empty</p>
+                </div>
+            {{ end }}
+        </div>
+    </div>
+
+    <div class="upload-dropbox" id="uploadDropbox">
+        📤 Drop files here to upload
+    </div>
+    <div class="upload-progress" id="uploadProgress">
+        <div id="uploadStatus"><strong>Uploading:</strong> <span id="uploadFileName"></span></div>
+        <div class="upload-progress-bar">
+            <div class="upload-progress-fill" id="uploadProgressFill"></div>
+        </div>
+    </div>
+
+    <div id="viewer"></div>
+
+    <script>
+
+        // Drag and drop upload functionality
+        const uploadDropbox = document.getElementById('uploadDropbox');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadFileName = document.getElementById('uploadFileName');
+        const uploadProgressFill = document.getElementById('uploadProgressFill');
+        let dragCounter = 0;
+
+        // Prevent default drag behaviors
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            document.body.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+            }, false);
+        });
+
+        // Show overlay when dragging files
+        document.body.addEventListener('dragenter', (e) => {
+            dragCounter++;
+            if (e.dataTransfer.types.includes('Files')) {
+                uploadDropbox.classList.add('show');
+            }
+        });
+
+        document.body.addEventListener('dragleave', () => {
+            dragCounter--;
+            if (dragCounter === 0) {
+                uploadDropbox.classList.remove('show');
+            }
+        });
+
+        document.body.addEventListener('drop', (e) => {
+            dragCounter = 0;
+            uploadDropbox.classList.remove('show');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        });
+
+        // click button to upload
+        document.getElementById('upload').addEventListener('click', (e) => {
+            document.getElementById('uploadButton').click()
+        });
+        document.getElementById('uploadButton').addEventListener('change', (e) => {
+            let files = e.target.files;
+            if (files && files.length > 0) {
+                uploadFile(files[0]);
+            }
+        });
+
+        function uploadFile(file) {
+            // Show progress
+            uploadFileName.textContent = file.name;
+            uploadProgress.classList.add('show');
+            uploadProgressFill.style.width = '0%';
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.addEventListener('progress', (e) => {
+                if (e.lengthComputable) {
+                    const percentComplete = (e.loaded / e.total) * 100;
+                    uploadProgressFill.style.width = percentComplete + '%';
+                }
+            });
+
+            xhr.addEventListener('load', () => {
+                if (xhr.status === 200 || xhr.status === 303) {
+                    document.getElementById("uploadStatus").innerHTML = "<b>Success</b>"
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    alert('Upload failed: ' + xhr.statusText);
+                    uploadProgress.classList.remove('show');
+                }
+            });
+
+            xhr.addEventListener('error', () => {
+                alert('Upload failed, Please try again.');
+                uploadProgress.classList.remove('show');
+            });
+
+            xhr.open('POST', '{{ .CurrentPath }}');
+            xhr.send(formData);
+        }
+
+
+        Array.from(document.getElementsByClassName("opt")).forEach(element => {
+            element.addEventListener('click', (e) => {
+                const obj = e.target;
+                const act = obj.getAttribute("act");
+                const path = obj.parentNode.getAttribute("path")
+                const fn = (json) => {
+                    alert((json.code == 200 ? "Success" : "Error") + "\r\n----------------------\r\n" + json.message);
+                    window.location.reload();
+                }
+                if (act == "delete") {
+                    request(path, "DELETE", fn)
+                }
+                else {
+                    const dst = prompt("Please input the destination path: ", path)
+                    if (dst) {
+                        request(path, "PUT", {act, dst}, fn)
+                    }
+                }
+            });
+        });
+
+        Array.from(document.getElementsByClassName("file")).forEach(element => {
+            element.addEventListener('click', (e) => {
+                const path = e.target.getAttribute("href")
+                if ((match = /\/[^\/]+\.(\w+)$/i.exec(path)) !== null) {
+                    const ext = match[1].toLowerCase()
+                    const txt = ["md", "txt", "log", "ini", "cfg", "yaml", "toml", "xml", "html", "htm", "js", "json", "css", "php", "py", "go", "sql", "csv", "sh", "bat", ""]
+                    const img = ["webp", "png", "jpg", "jpeg", "gif", "bmp"]
+                    if (txt.includes(ext) || img.includes(ext)) {
+                        request(path, (json) => {
+                            const viewer = document.getElementById("viewer")
+                            if (img.includes(ext)) {
+                                viewer.innerHTML = "<img src='data:image/"+ext+";base64," + json.data.content + "' max-width='100%' max-height='100%'>"
+                            }
+                            else {
+                                viewer.innerHTML = "<pre style='width:100%; height:100%; overflow: auto;'>" + atob(json.data.content).replace(/</g, '&lt;').replace(/>/g, '&gt;') + "</pre>"
+                            }
+                            viewer.setAttribute("path", path)
+                            viewer.classList.add("show")
+                        });
+                        e.preventDefault();
+                        e.stopPropagation();
+                        return false;
+                    }
+                }
+            });
+        });
+
+        document.getElementById('viewer').addEventListener('click', (e) => {
+            const viewer = document.getElementById('viewer')
+            if (e.srcElement != viewer) {
+                return;
+            }
+            if (e.y > e.screenY / 2) {
+                window.location.href = viewer.getAttribute("path")
+            }
+            viewer.removeAttribute("path")
+            viewer.classList.remove("show");
+        });
+
+        function request(path, method, data, callback) {
+            if (typeof method == "function") {
+                callback = method
+                method = null
+            }
+            if (typeof data == "function") {
+                callback = data
+                data = null
+            }
+            const xhr = new XMLHttpRequest();
+            xhr.open(method ?? "GET", path, true);
+            xhr.setRequestHeader("Content-Type", "application/json");
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    const json = JSON.parse(xhr.responseText);
+                    if (json.code) {
+                        typeof callback == "function" && callback(json)
+                    }
+                }
+            };
+            xhr.send(data ? JSON.stringify(data) : null);
+        }
+    </script>
+</body>
+</html>
