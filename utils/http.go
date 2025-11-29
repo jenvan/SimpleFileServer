@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func ReturnJSON(r *http.Request) bool {
+func MustJson(r *http.Request) bool {
 	result := false
 	if strings.Contains(r.Header.Get("Accept"), "application/json") {
 		result = true
@@ -67,7 +67,7 @@ func HttpOutput(r *http.Request, w http.ResponseWriter, args ...interface{}) {
 		}
 	}
 
-	if !ReturnJSON(r) {
+	if !MustJson(r) {
 		if code != http.StatusOK {
 			http.Error(w, msg, code)
 			return

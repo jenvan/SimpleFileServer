@@ -212,7 +212,7 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 		Files:       files,
 	}
 
-	if utils.ReturnJSON(r) {
+	if utils.MustJson(r) {
 		fmt.Println(data)
 		utils.HttpOutput(r, w, data)
 		return
@@ -253,7 +253,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return file content
-	if utils.ReturnJSON(r) {
+	if utils.MustJson(r) {
 		bytes, err := os.ReadFile(localPath)
 		if err != nil {
 			utils.HttpOutput(r, w, http.StatusBadRequest, "Cannot read file")
@@ -277,7 +277,7 @@ func getHandler(w http.ResponseWriter, r *http.Request) {
 
 func postHandler(w http.ResponseWriter, r *http.Request) {
 
-	if utils.ReturnJSON(r) {
+	if utils.MustJson(r) {
 		params, err := utils.HttpInput(r)
 		if err != nil {
 			utils.HttpOutput(r, w, http.StatusBadRequest, "Error parsing input params: "+err.Error())
